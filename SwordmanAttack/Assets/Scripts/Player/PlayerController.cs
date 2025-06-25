@@ -1,63 +1,117 @@
 using UnityEngine;
 
+[RequireComponent(typeof(CharacterController), typeof(Animator))]
 public class PlayerController : MonoBehaviour
 {
-    [SerializeField] private float movementSpeed = 10f, rotationSpeed = 5f, junmpForse = 10f, gravity = -30f;
+    [Header("Movement")]
+    [SerializeField] private float moveSpeed = 10f;
+    [SerializeField] private float rotSpeed = 5f;
 
-    private CharacterController characterController;
-    private float rotationY, verticalVelocity;
-    private Animator animator;
+    [Header("Jump & Gravity")]
+    [SerializeField] private float jumpHeight = 2f;
+    [SerializeField] private float gravityForce = -30f;
+    [SerializeField] private float coyoteTime = 0.2f;
+    [SerializeField] private float jumpBufferTime = 0.2f;
 
-    void Start()
-    {
-        characterController = GetComponent<CharacterController>();
-        animator = GetComponent<Animator>();
-    }
+    private CharacterController cc;
+    private Animator anim;
 
-    public void Move(Vector2 movementVector)
-    {
-        Vector3 cameraForward = CameraController.instance.GetCameraForward();
-        Vector3 cameraRight = CameraController.instance.GetCameraRight();
+    private float vertVel;
+    private float coyoteTimer;
+    private float jumpBufferTimer;
 
-        Vector3 moveDirection = cameraForward * movementVector.y + cameraRight * movementVector.x;
-
-        if (movementVector != Vector2.zero)
-        {
-            Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
-
-        }
-
-        Vector3 move = moveDirection * movementSpeed * Time.deltaTime;
-
-        characterController.Move(move);
-        verticalVelocity += gravity * Time.deltaTime;
-        characterController.Move(new Vector3(0, verticalVelocity, 0) * Time.deltaTime);
-
-        float inputMagnitude = movementVector.magnitude;
-        animator.SetFloat("Speed", inputMagnitude);
-        animator.SetBool("IsMoving", inputMagnitude > 0.1f);
-        animator.SetBool("IsGrounded", characterController.isGrounded);
-
-        // Проверка падения
-        if (!characterController.isGrounded && verticalVelocity < -1f)
-        {
-            animator.SetBool("IsFalling", true);
-        }
-        else
-        {
-            animator.SetBool("IsFalling", false);
-        }
-    }
    
+
+    // Хэши аниматора
+    private static readonly int hashSpeed = Animator.StringToHash("Speed");
+    private static readonly int hashIsMoving = Animator.StringToHash("IsMoving");
+    private static readonly int hashIsGround = Animator.StringToHash("IsGrounded");
+    private static readonly int hashIsFalling = Animator.StringToHash("IsFalling");
+    private static readonly int hashJumpTrig = Animator.StringToHash("IsJumping");
+
+    void Awake()
+    {
+        cc = GetComponent<CharacterController>();
+        anim = GetComponent<Animator>();
+    }
+
+    void Update()
+    {
+        Vector2 input = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical"));
+        HandleJumpInput();
+        Move(input);
+    }
+
+    private void HandleJumpInput()
+    {
+        // Обновляем таймеры
+        if (cc.isGrounded)
+            coyoteTimer = coyoteTime;
+        else
+            coyoteTimer -= Time.deltaTime;
+
+        if (Input.GetButtonDown("Jump"))
+            jumpBufferTimer = jumpBufferTime;
+        else
+            jumpBufferTimer -= Time.deltaTime;
+
+        // Прыжок, если есть буфер и мы всё ещё в coyote time
+        if (jumpBufferTimer > 0f && coyoteTimer > 0f)
+            PerformJump();
+    }
 
     public void Jump()
     {
-        if (characterController.isGrounded)
-        {
-            verticalVelocity = junmpForse;
-            animator.SetTrigger("IsJumping");
-        }
-        
+        // Можно сразу кинуть PerformJump или присвоить буфер
+        if(cc.isGrounded)
+            PerformJump();
     }
+    
+    private void PerformJump()
+    {
+        vertVel = Mathf.Sqrt(jumpHeight * -2f * gravityForce);
+        anim.SetTrigger(hashJumpTrig);
+        jumpBufferTimer = 0f;
+        coyoteTimer = 0f;
+    }
+
+    public void Move(Vector2 input)
+    {
+        // Сброс вертикальной скорости при касании земли
+        if (cc.isGrounded && vertVel < 0f)
+            vertVel = -2f;
+
+        // Горизонтальное направление в мировых координатах камеры
+        Vector3 fwd = CameraController.instance.GetCameraForward();
+        Vector3 right = CameraController.instance.GetCameraRight();
+        Vector3 dir = (fwd * input.y + right * input.x).normalized;
+
+        // Поворот персонажа
+        if (dir.sqrMagnitude > 0.01f)
+        {
+            Quaternion targetRot = Quaternion.LookRotation(dir);
+            transform.rotation = Quaternion.Slerp(transform.rotation,
+                                                   targetRot,
+                                                   rotSpeed * Time.deltaTime);
+        }
+
+        // Гравитация
+        vertVel += gravityForce * Time.deltaTime;
+
+        // Совмещаем движение
+        Vector3 velocity = dir * moveSpeed + Vector3.up * vertVel;
+        cc.Move(velocity * Time.deltaTime);
+
+        // Анимация
+        float speedVal = input.magnitude;
+        bool grounded = cc.isGrounded;
+        bool falling = !grounded && vertVel < -1f;
+
+        anim.SetFloat(hashSpeed, speedVal);
+        anim.SetBool(hashIsMoving, speedVal > 0.1f);
+        anim.SetBool(hashIsGround, grounded);
+        anim.SetBool(hashIsFalling, falling);
+    }
+    
+
 }

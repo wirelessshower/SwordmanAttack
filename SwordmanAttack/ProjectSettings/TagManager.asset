@@ -4,7 +4,9 @@
 TagManager:
   serializedVersion: 3
   tags:
-  - Targget
+  - Enemy
+  - Dummy
+  - Sword
   layers:
   - Default
   - TransparentFX
@@ -12,7 +14,7 @@ TagManager:
   - 
   - Water
   - UI
-  - 
+  - Enemy
   - 
   - 
   - 

@@ -1,32 +1,61 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+[RequireComponent(typeof(PlayerInput))]
 public class InputHandler : MonoBehaviour
 {
-    public PlayerController CharacterController;
+    [SerializeField] private PlayerController playerController;   // Твой скрипт с Move() и Jump()
 
-    private InputAction moveAction, lookAction, jumpAction;
+    private InputAction moveAction;
+    private InputAction lookAction;
+    private InputAction jumpAction;
+    private PlayerInput   playerInput;
 
-    void Start()
+    private void Awake()
     {
-        moveAction = InputSystem.actions.FindAction("Move");
-        lookAction = InputSystem.actions.FindAction("Look");
-        jumpAction = InputSystem.actions.FindAction("Jump");
+        playerInput = GetComponent<PlayerInput>();
+    }
 
+    private void OnEnable()
+    {
+        // Берём Actions из того же InputActionAsset, что и PlayerInput
+        var map = playerInput.actions.FindActionMap("Player");
+
+        moveAction = map.FindAction("Move");
+        lookAction = map.FindAction("Look");
+        jumpAction = map.FindAction("Jump");
+
+        // Включаем их, чтобы они заработали
+        moveAction.Enable();
+        lookAction.Enable();
+        jumpAction.Enable();
+
+        // Привязываем jump
         jumpAction.performed += OnJumpPerformed;
     }
 
-    void Update()
+    private void OnDisable()
     {
-        Vector2 moventVector = moveAction.ReadValue<Vector2>();
-        CharacterController.Move(moventVector);
-        
+        jumpAction.performed -= OnJumpPerformed;
+
+        moveAction.Disable();
+        lookAction.Disable();
+        jumpAction.Disable();
     }
 
-    private void OnJumpPerformed(InputAction.CallbackContext context)
+    private void Update()
     {
-        CharacterController.Jump();
+        // Читаем вектор и передаём в твой контроллер
+        Vector2 moveVector = moveAction.ReadValue<Vector2>();
+        playerController.Move(moveVector);
+
+        // Если нужен look:
+        // Vector2 lookVector = lookAction.ReadValue<Vector2>();
+        // playerController.Look(lookVector);
     }
 
-
+    private void OnJumpPerformed(InputAction.CallbackContext ctx)
+    {
+        playerController.Jump();
+    }
 }

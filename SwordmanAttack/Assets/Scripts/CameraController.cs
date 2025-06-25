@@ -13,8 +13,8 @@ public class CameraController : MonoBehaviour
     [SerializeField] private float rotationSpeed = 200f;
     [SerializeField] private float minYAngle = -30f, maxYAngle = 60f;
 
-    private float currentYaw = 0f; // Горизонтальный поворот
-    private float currentPitch = 10f; // Вертикальный поворот (начальное положение)
+    private float _currentYaw = 0f; // Горизонтальный поворот
+    private float _currentPitch = 10f; // Вертикальный поворот (начальное положение)
 
     private void Awake() {
         if (instance == null)
@@ -28,15 +28,15 @@ public class CameraController : MonoBehaviour
         if (Mouse.current.rightButton.isPressed)
         {
             Vector2 lookInput = Mouse.current.delta.ReadValue();
-            currentYaw += lookInput.x * rotationSpeed * Time.deltaTime;
-            currentPitch -= lookInput.y * rotationSpeed * Time.deltaTime;
-            currentPitch = Mathf.Clamp(currentPitch, minYAngle, maxYAngle);
+            _currentYaw += lookInput.x * rotationSpeed * Time.deltaTime;
+            _currentPitch -= lookInput.y * rotationSpeed * Time.deltaTime;
+            _currentPitch = Mathf.Clamp(_currentPitch, minYAngle, maxYAngle);
             Cursor.visible = false;
         }
         else
             Cursor.visible = true;
 
-        Quaternion rotation = Quaternion.Euler(currentPitch, currentYaw, 0);
+        Quaternion rotation = Quaternion.Euler(_currentPitch, _currentYaw, 0);
         Vector3 desiredPosition = followTarget.position + rotation * offset;
 
         transform.position = Vector3.Lerp(transform.position, desiredPosition, followSpeed * Time.deltaTime);
